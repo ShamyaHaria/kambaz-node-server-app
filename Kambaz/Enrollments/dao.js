@@ -4,17 +4,36 @@ export default function EnrollmentsDao(db) {
     function findAllEnrollments() {
         return db.enrollments;
     }
-
+    
     function enrollUserInCourse(userId, courseId) {
         const { enrollments } = db;
+        // Check if already enrolled
+        const existingEnrollment = enrollments.find(
+            (e) => e.user === userId && e.course === courseId
+        );
+        if (existingEnrollment) {
+            return existingEnrollment;
+        }
+        
         const newEnrollment = {
             _id: uuidv4(),
             user: userId,
             course: courseId
         };
-        enrollments.push(newEnrollment);
+        db.enrollments = [...db.enrollments, newEnrollment];
         return newEnrollment;
     }
 
-    return { findAllEnrollments, enrollUserInCourse };
+    function unenrollUserFromCourse(userId, courseId) {
+        const { enrollments } = db;
+        db.enrollments = enrollments.filter(
+            (e) => !(e.user === userId && e.course === courseId)
+        );
+    }
+    
+    return { 
+        findAllEnrollments, 
+        enrollUserInCourse, 
+        unenrollUserFromCourse 
+    };
 }
