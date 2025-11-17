@@ -1,13 +1,15 @@
 import CoursesDao from "./dao.js";
 import EnrollmentsDao from "../Enrollments/dao.js";
+
 export default function CourseRoutes(app, db) {
   const dao = CoursesDao(db);
   const enrollmentsDao = EnrollmentsDao(db);
 
   const findAllCourses = (req, res) => {
     const courses = dao.findAllCourses();
-    res.send(courses);
-  }
+    res.json(courses);  // Changed from res.send to res.json for consistency
+  };
+
   const findCoursesForEnrolledUser = (req, res) => {
     let { userId } = req.params;
     if (userId === "current") {
@@ -21,27 +23,30 @@ export default function CourseRoutes(app, db) {
     const courses = dao.findCoursesForEnrolledUser(userId);
     res.json(courses);
   };
+
   const createCourse = (req, res) => {
     const currentUser = req.session["currentUser"];
     const newCourse = dao.createCourse(req.body);
-    enrollmentDao.enrollUserInCourse(
+    enrollmentsDao.enrollUserInCourse(  // ✅ Fixed: enrollmentsDao
       currentUser._id,
       newCourse._id
     );
     res.json(newCourse);
   };
+
   const deleteCourse = (req, res) => {
     const { courseId } = req.params;
     const status = dao.deleteCourse(courseId);
     res.send(status);
-  }
+  };
+
   const updateCourse = (req, res) => {
     const { courseId } = req.params;
     const courseUpdates = req.body;
-    const status = dao.updateCourse(
-      courseId, courseUpdates);
+    const status = dao.updateCourse(courseId, courseUpdates);
     res.send(status);
-  }
+  };
+
   const createModuleForCourse = (req, res) => {
     const { courseId } = req.params;
     const module = {
@@ -50,7 +55,8 @@ export default function CourseRoutes(app, db) {
     };
     const newModule = dao.createModule(module);
     res.send(newModule);
-  }
+  };
+
   app.post("/api/courses/:courseId/modules", createModuleForCourse);
   app.put("/api/courses/:courseId", updateCourse);
   app.delete("/api/courses/:courseId", deleteCourse);
