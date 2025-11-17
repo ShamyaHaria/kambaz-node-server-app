@@ -32,6 +32,14 @@ export default function WorkingWithArrays(app) {
         const { id, title } = req.params;
         const todo = todos.find(
             (t) => t.id === parseInt(id));
+            const todoIndex = todos.findIndex(
+      (t) => t.id === parseInt(id));
+    if (todoIndex === -1) {
+      res.status(404).json({ message:
+        `Unable to update Todo with ID ${id}` });
+      return;
+    }
+
         todo.title = title;
         res.json(todos);
     };
