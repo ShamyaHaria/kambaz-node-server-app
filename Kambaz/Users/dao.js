@@ -20,9 +20,11 @@ export default function UsersDao(db) {
         users.find((user) =>
             user.username === username &&
             user.password === password);
+
     const updateUser = (userId, user) =>
     (users = users.map((u) =>
         (u._id === userId ? user : u)));
+
 
     const deleteUser = (userId) =>
         (users = users.filter((u) => u._id !== userId));
