@@ -32,13 +32,15 @@ export default function WorkingWithArrays(app) {
         const { id, title } = req.params;
         const todo = todos.find(
             (t) => t.id === parseInt(id));
-            const todoIndex = todos.findIndex(
-      (t) => t.id === parseInt(id));
-    if (todoIndex === -1) {
-      res.status(404).json({ message:
-        `Unable to update Todo with ID ${id}` });
-      return;
-    }
+        const todoIndex = todos.findIndex(
+            (t) => t.id === parseInt(id));
+        if (todoIndex === -1) {
+            res.status(404).json({
+                message:
+                    `Unable to update Todo with ID ${id}`
+            });
+            return;
+        }
 
         todo.title = title;
         res.json(todos);
@@ -63,11 +65,13 @@ export default function WorkingWithArrays(app) {
         const { id } = req.params;
         const todoIndex = todos.findIndex(
             (t) => t.id === parseInt(id));
-            if (todoIndex === -1) {
-      res.status(404).json({ message:
-        `Unable to delete Todo with ID ${id}` });
-      return;
-    }
+        if (todoIndex === -1) {
+            res.status(404).json({
+                message:
+                    `Unable to delete Todo with ID ${id}`
+            });
+            return;
+        }
 
         todos.splice(todoIndex, 1);
         res.sendStatus(200);
@@ -82,12 +86,12 @@ export default function WorkingWithArrays(app) {
         });
         res.sendStatus(200);
     };
-    app.put("/lab5/todos/:id", updateTodo);
-    app.post("/lab5/todos", postNewTodo);
+    app.get("/lab5/todos/create", createNewTodo);
     app.get("/lab5/todos", getTodos);
+    app.get("/lab5/todos/:id", getTodoById);
     app.get("/lab5/todos/:id/title/:title", updateTodoTitle);
     app.get("/lab5/todos/:id/delete", removeTodo);
-    app.get("/lab5/todos/:id", getTodoById);
-    app.get("/lab5/todos/create", createNewTodo);
+    app.post("/lab5/todos", postNewTodo);
+    app.put("/lab5/todos/:id", updateTodo);
     app.delete("/lab5/todos/:id", deleteTodo);
 };
