@@ -6,6 +6,7 @@ import db from "./Kambaz/Database/index.js";
 import UserRoutes from "./Kambaz/Users/routes.js";
 import "dotenv/config";
 import session from "express-session";
+import CourseRoutes from "./Kambaz/Courses/routes.js";
 const app = express();
 app.use(cors({
     credentials: true,
@@ -26,7 +27,8 @@ if (process.env.SERVER_ENV !== "development") {
 }
 app.use(session(sessionOptions));
 app.use(express.json());
+UserRoutes(app, db);
+CourseRoutes(app, db);
 Hello(app);
 Lab5(app);
-UserRoutes(app, db);
 app.listen(process.env.PORT || 4000);
