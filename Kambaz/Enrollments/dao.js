@@ -1,39 +1,31 @@
-import { v4 as uuidv4 } from "uuid";
-
+import model from "./model.js";
 export default function EnrollmentsDao(db) {
-    function findAllEnrollments() {
-        return db.enrollments;
+    async function findCoursesForUser(userId) {
+        const enrollments = await model.find({ user: userId }).populate("course");
+        return enrollments.map((enrollment) => enrollment.course);
     }
-    
+    async function findUsersForCourse(courseId) {
+        const enrollments = await model.find({ course: courseId }).populate("user");
+        return enrollments.map((enrollment) => enrollment.user);
+    }
     function enrollUserInCourse(userId, courseId) {
-        const { enrollments } = db;
-        // Check if already enrolled
-        const existingEnrollment = enrollments.find(
-            (e) => e.user === userId && e.course === courseId
-        );
-        if (existingEnrollment) {
-            return existingEnrollment;
-        }
-        
-        const newEnrollment = {
-            _id: uuidv4(),
+        return model.create({
             user: userId,
-            course: courseId
-        };
-        db.enrollments = [...db.enrollments, newEnrollment];
-        return newEnrollment;
+            course: courseId,
+            _id: `${userId}-${courseId}`,
+        });
     }
-
-    function unenrollUserFromCourse(userId, courseId) {
-        const { enrollments } = db;
-        db.enrollments = enrollments.filter(
-            (e) => !(e.user === userId && e.course === courseId)
-        );
+    function unenrollUserFromCourse(user, course) {
+        return model.deleteOne({ user, course });
     }
-    
-    return { 
-        findAllEnrollments, 
-        enrollUserInCourse, 
-        unenrollUserFromCourse 
+    function unenrollAllUsersFromCourse(courseId) {
+        return model.deleteMany({ course: courseId });
+    }
+    return {
+        findCoursesForUser,
+        findUsersForCourse,
+        enrollUserInCourse,
+        unenrollUserFromCourse,
+        unenrollAllUsersFromCourse,
     };
 }
