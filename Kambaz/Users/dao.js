@@ -1,42 +1,29 @@
-import { v4 as uuidv4 } from "uuid";
 import model from "./model.js";
 
-export default function UsersDao() {
+export const createUser = (user) => {
+    delete user._id;
+    return model.create(user);
+};
 
-    const createUser = (user) => {
-        const newUser = { ...user, _id: uuidv4() };
-        return model.create(newUser);
-    }
+export const findAllUsers = () => model.find();
 
-    const findAllUsers = () => model.find();
+export const findUserById = (userId) => model.findById(userId);
 
-    const findUserById = (userId) => model.findById(userId);
+export const findUserByUsername = (username) => model.findOne({ username });
 
-    const findUserByUsername = (username) =>
-        users.find((user) => user.username === username);
+export const findUserByCredentials = (username, password) =>
+    model.findOne({ username, password });
 
-    const findUserByCredentials = (username, password) =>
-        users.find((user) =>
-            user.username === username &&
-            user.password === password);
+export const updateUser = (userId, user) => 
+    model.updateOne({ _id: userId }, { $set: user });
 
-    const updateUser = (userId, user) => model.updateOne({ _id: userId }, { $set: user });
+export const deleteUser = (userId) => model.findByIdAndDelete(userId);
 
-    const deleteUser = (userId) => model.findByIdAndDelete(userId);
+export const findUsersByRole = (role) => model.find({ role });
 
-    const findUsersByRole = (role) => model.find({ role: role });
-
-    const findUsersByPartialName = (partialName) => {
-        const regex = new RegExp(partialName, "i"); // 'i' makes it case-insensitive
-        return model.find({
-            $or: [{ firstName: { $regex: regex } }, { lastName: { $regex: regex } }],
-        });
-    };
-
-
-    return {
-        createUser, findAllUsers, findUserById,
-        findUserByUsername, findUserByCredentials,
-        updateUser, deleteUser, findUsersByRole, findUsersByPartialName
-    };
-}
+export const findUsersByPartialName = (partialName) => {
+    const regex = new RegExp(partialName, "i");
+    return model.find({
+        $or: [{ firstName: { $regex: regex } }, { lastName: { $regex: regex } }],
+    });
+};
