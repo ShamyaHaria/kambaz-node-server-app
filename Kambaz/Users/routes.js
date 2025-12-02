@@ -1,8 +1,10 @@
 import * as dao from "./dao.js";
 import CoursesDao from "../Courses/dao.js";
+import EnrollmentsDao from "../Enrollments/dao.js";
 
 export default function UserRoutes(app) {
   const coursesDao = CoursesDao();
+  const enrollmentsDao = EnrollmentsDao();
 
   const createUser = async (req, res) => {
     const user = await dao.createUser(req.body);
@@ -41,12 +43,13 @@ export default function UserRoutes(app) {
     const userId = req.params.userId;
     const userUpdates = req.body;
     await dao.updateUser(userId, userUpdates);
+    const updatedUser = await dao.findUserById(userId);
     const currentUser = req.session["currentUser"];
     if (currentUser && currentUser._id === userId) {
-      req.session["currentUser"] = { ...currentUser, ...userUpdates };
+      req.session["currentUser"] = updatedUser;
     }
-    req.session["currentUser"] = currentUser;
-    res.json(currentUser);
+
+    res.json(updatedUser);
   };
 
   const signup = async (req, res) => {
@@ -96,23 +99,19 @@ export default function UserRoutes(app) {
   };
 
   const createCourseForCurrentUser = async (req, res) => {
-    const currentUser = req.session["currentUser"];
-    if (!currentUser) {
-      res.sendStatus(401);
-      return;
+    try {
+      const currentUser = req.session["currentUser"];
+      if (!currentUser) {
+        res.sendStatus(401);
+        return;
+      }
+      const newCourse = await coursesDao.createCourse(req.body);
+      await enrollmentsDao.enrollUserInCourse(currentUser._id, newCourse._id);
+
+      res.json(newCourse);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-    const newCourse = await coursesDao.createCourse(req.body);
-
-    db.enrollments = [
-      ...db.enrollments,
-      {
-        _id: new Date().getTime().toString(),
-        user: currentUser._id,
-        course: newCourse._id,
-      },
-    ];
-
-    res.json(newCourse);
   };
 
   app.post("/api/users", createUser);
