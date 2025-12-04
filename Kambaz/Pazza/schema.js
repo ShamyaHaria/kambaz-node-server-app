@@ -15,6 +15,7 @@ const pazzaPostSchema = new mongoose.Schema(
         title: { type: String, required: true },
         content: { type: String, required: true },
         course: { type: String, ref: "CourseModel", required: true },
+        category: { type: String, enum: ['Concept', 'Clarification', 'Testing', 'Bug', 'Setup', 'Other'], default: 'Other' }, 
         author: {
             _id: { type: String, ref: "UserModel", required: true },
             name: String,
@@ -33,6 +34,7 @@ const pazzaPostSchema = new mongoose.Schema(
     },
     { collection: "pazza_posts" }
 );
+
 pazzaPostSchema.pre('save', function (next) {
     this.updatedAt = new Date();
     next();

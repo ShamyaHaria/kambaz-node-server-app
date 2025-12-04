@@ -1,4 +1,6 @@
 import PazzaDao from "./dao.js";
+import EnrollmentsDao from "../Enrollments/dao.js";
+
 export default function PazzaRoutes(app) {
     const dao = PazzaDao();
     const findPostsForCourse = async (req, res) => {
@@ -164,6 +166,127 @@ export default function PazzaRoutes(app) {
             res.status(500).json({ error: error.message });
         }
     };
+
+    // Get detailed statistics
+    const getStatistics = async (req, res) => {
+        try {
+            const { courseId } = req.params;
+            const posts = await dao.findPostsForCourse(courseId, {});
+
+            // Get all enrolled users for this course
+            const enrollmentsDao = EnrollmentsDao();
+            const enrolledUsers = await enrollmentsDao.findUsersForCourse(courseId);
+
+            // Usage by day
+            const usageByDay = {};
+            posts.forEach(post => {
+                const date = new Date(post.createdAt).toLocaleDateString();
+                if (!usageByDay[date]) {
+                    usageByDay[date] = new Set();
+                }
+                usageByDay[date].add(post.author._id);
+            });
+
+            const usageData = Object.keys(usageByDay).map(date => ({
+                date,
+                uniqueUsers: usageByDay[date].size
+            })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            // Posts by day
+            const postsByDay = {};
+            posts.forEach(post => {
+                const date = new Date(post.createdAt).toLocaleDateString();
+                postsByDay[date] = (postsByDay[date] || 0) + 1;
+            });
+
+            const postsData = Object.keys(postsByDay).map(date => ({
+                date,
+                posts: postsByDay[date]
+            })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            // Category breakdown by folder
+            const categoryBreakdown = {};
+            posts.forEach(post => {
+                const folder = post.tags[0] || 'other';
+                const category = post.category || 'Other';
+
+                if (!categoryBreakdown[folder]) {
+                    categoryBreakdown[folder] = {};
+                }
+                categoryBreakdown[folder][category] = (categoryBreakdown[folder][category] || 0) + 1;
+            });
+
+            // Class stats
+            const totalContributions = posts.length + posts.reduce((sum, p) => sum + p.followups.length, 0);
+            const instructorResponses = posts.filter(p => p.author.role === 'instructor').length +
+                posts.reduce((sum, p) => sum + p.followups.filter(f => f.author.role === 'instructor').length, 0);
+
+            // Top contributors (from enrolled students only)
+            const contributorMap = {};
+
+            // Initialize all enrolled students with 0 contributions
+            enrolledUsers.forEach(user => {
+                if (user && user.role === 'STUDENT') {
+                    contributorMap[user._id] = {
+                        name: `${user.firstName} ${user.lastName}`,
+                        email: user.email || `${user.username}@northeastern.edu`,
+                        contributions: 0,
+                        postsViewed: 0,
+                        daysOnline: 0
+                    };
+                }
+            });
+
+            // Add actual contributions
+            posts.forEach(post => {
+                const authorId = post.author._id;
+                if (contributorMap[authorId]) {
+                    contributorMap[authorId].contributions += 1;
+
+                    // Count followup contributions
+                    post.followups.forEach(followup => {
+                        if (contributorMap[followup.author._id]) {
+                            contributorMap[followup.author._id].contributions += 1;
+                        }
+                    });
+                }
+            });
+
+            const topContributors = Object.values(contributorMap)
+                .sort((a, b) => b.contributions - a.contributions)
+                .slice(0, 10);
+
+            // Student participation - all enrolled students
+            const studentParticipation = Object.values(contributorMap);
+
+            res.json({
+                usageByDay: usageData,
+                postsByDay: postsData,
+                categoryBreakdown,
+                classStats: {
+                    totalPosts: posts.length,
+                    totalContributions,
+                    uncreditedContributions: 0,
+                    instructorResponses,
+                    avgResponseTime: 28,
+                },
+                topContributors,
+                studentParticipation,
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+    const getTagCounts = async (req, res) => {
+        try {
+            const { courseId } = req.params;
+            const tagCounts = await dao.getTagCounts(courseId);
+            res.json(tagCounts);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+    app.get("/api/pazza/courses/:courseId/statistics", getStatistics);
     app.get("/api/pazza/courses/:courseId/posts", findPostsForCourse);
     app.get("/api/pazza/posts/:postId", findPostById);
     app.post("/api/pazza/courses/:courseId/posts", createPost);
@@ -177,4 +300,5 @@ export default function PazzaRoutes(app) {
     app.post("/api/pazza/posts/:postId/followups", addFollowUp);
     app.post("/api/pazza/posts/:postId/followups/:followupId/like", likeFollowUp);
     app.get("/api/pazza/courses/:courseId/stats", getCourseStats);
+    app.get("/api/pazza/courses/:courseId/tag-counts", getTagCounts);
 }

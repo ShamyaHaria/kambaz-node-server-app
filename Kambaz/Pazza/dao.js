@@ -84,28 +84,35 @@ export default function PazzaDao() {
             { new: true }
         );
     }
+// Stats
     async function getCourseStats(courseId) {
         const posts = await model.find({ course: courseId });
+        const EnrollmentsDao = (await import("../Enrollments/dao.js")).default;
+        const enrollmentsDao = EnrollmentsDao();
+        const enrollments = await enrollmentsDao.findEnrollmentsForCourse(courseId);
+        const studentsEnrolled = enrollments.length;
+        
         const totalPosts = posts.length;
         const totalContributions = posts.reduce((sum, post) => sum + post.followups.length, 0) + totalPosts;
-        const unansweredQuestions = posts.filter(post =>
+        const unansweredQuestions = posts.filter(post => 
             post.followups.length === 0 || !post.followups.some(f => f.isAnswer)
         ).length;
-        const unansweredFollowups = posts.reduce((sum, post) =>
+        const unansweredFollowups = posts.reduce((sum, post) => 
             sum + post.followups.filter(f => !f.isAnswer).length, 0
         );
         const instructorResponses = posts.filter(post => post.author.role === 'instructor').length +
-            posts.reduce((sum, post) =>
+            posts.reduce((sum, post) => 
                 sum + post.followups.filter(f => f.author.role === 'instructor').length, 0
             );
         const studentResponses = posts.filter(post => post.author.role === 'student').length +
-            posts.reduce((sum, post) =>
+            posts.reduce((sum, post) => 
                 sum + post.followups.filter(f => f.author.role === 'student').length, 0
             );
+
         return {
             totalPosts,
             totalContributions,
-            studentsEnrolled: 373,
+            studentsEnrolled,
             unreadPosts: 0,
             unansweredQuestions,
             unansweredFollowups,
@@ -113,6 +120,20 @@ export default function PazzaDao() {
             studentResponses,
         };
     }
+
+    async function getTagCounts(courseId) {
+        const posts = await model.find({ course: courseId });
+        const tagCounts = {};
+        
+        posts.forEach(post => {
+            post.tags.forEach(tag => {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+        });
+        
+        return tagCounts;
+    }
+
     return {
         findPostsForCourse,
         findPostById,
@@ -127,5 +148,6 @@ export default function PazzaDao() {
         addFollowUp,
         likeFollowUp,
         getCourseStats,
+        getTagCounts,
     };
 }
