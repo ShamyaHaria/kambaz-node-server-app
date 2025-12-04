@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 const userSchema = new mongoose.Schema({
     _id: String,
     username: { type: String, required: true, unique: true },
@@ -16,7 +17,13 @@ const userSchema = new mongoose.Schema({
     section: String,
     lastActivity: Date,
     totalActivity: String,
+    officeHours: {
+        days: String,
+        time: String,
+        location: String,
+    },
 },
     { collection: "users" }
 );
+
 export default userSchema;

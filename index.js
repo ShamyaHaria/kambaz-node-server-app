@@ -12,6 +12,7 @@ import ModulesRoutes from "./Kambaz/Modules/routes.js";
 import AssignmentsRoutes from "./Kambaz/Assignments/routes.js";
 import EnrollmentsRoutes from "./Kambaz/Enrollments/routes.js";
 import PazzaRoutes from "./Kambaz/Pazza/routes.js";
+import PazzaResourcesRoutes from './Kambaz/Pazza/resourcesRoutes.js';
 const CONNECTION_STRING = process.env.MONGO_CONNECTION_STRING || "mongodb://127.0.0.1:27017/kambaz"
 mongoose.connect(CONNECTION_STRING);
 const app = express();
@@ -40,6 +41,7 @@ ModulesRoutes(app);
 AssignmentsRoutes(app);
 EnrollmentsRoutes(app);
 PazzaRoutes(app);
+PazzaResourcesRoutes(app);
 Hello(app);
 Lab5(app);
 app.listen(process.env.PORT || 4000);
