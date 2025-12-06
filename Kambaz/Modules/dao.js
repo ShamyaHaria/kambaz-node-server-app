@@ -7,14 +7,19 @@ export default function ModulesDao() {
         return course?.modules || [];
     }
 
-    async function createModule(courseId, module) {
-        const newModule = { ...module, _id: uuidv4() };
-        await model.updateOne(
-            { _id: courseId },
-            { $push: { modules: newModule } }
-        );
-        return newModule;
-    }
+async function createModule(courseId, module) {
+    console.log('=== DAO CREATE MODULE ===');
+    console.log('courseId:', courseId);
+    console.log('courseId type:', typeof courseId);
+    console.log('module:', module);
+    
+    const newModule = { ...module, _id: uuidv4() };
+    await model.updateOne(
+        { _id: courseId },
+        { $push: { modules: newModule } }
+    );
+    return newModule;
+}
 
     async function deleteModule(courseId, moduleId) {
         const status = await model.updateOne(

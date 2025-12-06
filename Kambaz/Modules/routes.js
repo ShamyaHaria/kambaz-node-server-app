@@ -5,11 +5,21 @@ export default function ModulesRoutes(app) {
 
     const createModuleForCourse = async (req, res) => {
         try {
+            console.log('=== ROUTE CREATE MODULE ===');
+            console.log('req.params:', req.params);
+            console.log('req.body:', req.body);
+            
             const { courseId } = req.params;
-            const module = { ...req.body };
+            const module = req.body;
+            
+            console.log('About to call dao.createModule with:');
+            console.log('- courseId:', courseId);
+            console.log('- module:', module);
+            
             const newModule = await dao.createModule(courseId, module);
             res.json(newModule);
         } catch (error) {
+            console.error('Error creating module:', error);
             res.status(500).json({ error: error.message });
         }
     };

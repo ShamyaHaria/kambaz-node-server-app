@@ -1,4 +1,5 @@
 import model from "./model.js";
+import { v4 as uuidv4 } from "uuid";
 
 export default function AssignmentsDao() {
     function findAssignmentsForCourse(courseId) {
@@ -6,8 +7,8 @@ export default function AssignmentsDao() {
     }
 
     function createAssignment(assignment) {
-        delete assignment._id;
-        return model.create(assignment);
+        const newAssignment = { ...assignment, _id: assignment._id || uuidv4() };
+        return model.create(newAssignment);
     }
 
     function deleteAssignment(assignmentId) {
