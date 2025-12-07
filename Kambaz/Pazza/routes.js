@@ -30,27 +30,49 @@ export default function PazzaRoutes(app) {
     };
     const createPost = async (req, res) => {
         try {
+            console.log('=== CREATE POST REQUEST ===');
+            console.log('Course ID:', req.params.courseId);
+            console.log('Request body:', req.body);
+            console.log('Session user:', req.session["currentUser"]);
+
             const { courseId } = req.params;
             const currentUser = req.session["currentUser"];
+
             if (!currentUser) {
+                console.log('ERROR: No user in session');
                 return res.status(401).json({ error: "Must be logged in to create posts" });
             }
+
+            let pazzaRole = 'student';
+            if (currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN') {
+                pazzaRole = 'instructor';
+            } else if (currentUser.role === 'TA') {
+                pazzaRole = 'ta';
+            }
+
             const post = {
                 ...req.body,
                 course: courseId,
                 author: {
                     _id: currentUser._id,
                     name: `${currentUser.firstName} ${currentUser.lastName}`,
-                    role: currentUser.role || 'student'
+                    role: pazzaRole
                 },
-                isInstructor: currentUser.role === 'instructor' || currentUser.role === 'ta'
+                isInstructor: currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN'
             };
+
+            console.log('Creating post:', post);
             const newPost = await dao.createPost(post);
+            console.log('Post created successfully:', newPost._id);
+
             res.json(newPost);
         } catch (error) {
+            console.error('ERROR creating post:', error);
+            console.error('Error stack:', error.stack);
             res.status(500).json({ error: error.message });
         }
     };
+
     const updatePost = async (req, res) => {
         try {
             const { postId } = req.params;
@@ -88,19 +110,38 @@ export default function PazzaRoutes(app) {
             res.status(500).json({ error: error.message });
         }
     };
+
     const toggleLike = async (req, res) => {
         try {
+            console.log('=== TOGGLE LIKE REQUEST ===');
             const { postId } = req.params;
             const currentUser = req.session["currentUser"];
+
+            console.log('Post ID:', postId);
+            console.log('Current user:', currentUser?._id);
+
             if (!currentUser) {
+                console.log('ERROR: No user in session');
                 return res.status(401).json({ error: "Must be logged in" });
             }
+
+            console.log('Calling dao.toggleLike...');
             const post = await dao.toggleLike(postId, currentUser._id);
-            res.json(post);
+            console.log('After toggle - likes:', post.likes);
+            console.log('After toggle - likedBy:', post.likedBy);
+            const userHasLiked = (post.likedBy || []).includes(currentUser._id);
+            console.log('User has liked:', userHasLiked);
+
+            res.json({
+                ...post.toObject(),
+                userHasLiked
+            });
         } catch (error) {
+            console.error('ERROR in toggleLike:', error);
             res.status(500).json({ error: error.message });
         }
     };
+
     const toggleBookmark = async (req, res) => {
         try {
             const { postId } = req.params;
@@ -131,28 +172,84 @@ export default function PazzaRoutes(app) {
         try {
             const { postId } = req.params;
             const currentUser = req.session["currentUser"];
+
             if (!currentUser) {
                 return res.status(401).json({ error: "Must be logged in" });
             }
+            let pazzaRole = 'student';
+            if (currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN') {
+                pazzaRole = 'instructor';
+            } else if (currentUser.role === 'TA') {
+                pazzaRole = 'ta';
+            }
+
             const followup = {
                 ...req.body,
                 author: {
                     _id: currentUser._id,
                     name: `${currentUser.firstName} ${currentUser.lastName}`,
-                    role: currentUser.role || 'student'
+                    role: pazzaRole
                 }
             };
+
             const post = await dao.addFollowUp(postId, followup);
             res.json(post);
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
     };
+
+    const deleteFollowUp = async (req, res) => {
+        try {
+            const { postId, followupId } = req.params;
+            const currentUser = req.session["currentUser"];
+
+            if (!currentUser) {
+                return res.status(401).json({ error: "Must be logged in" });
+            }
+
+            const post = await dao.findPostById(postId);
+            if (!post) {
+                return res.status(404).json({ error: "Post not found" });
+            }
+
+            const followup = post.followups.find(f => f._id.toString() === followupId);
+            if (!followup) {
+                return res.status(404).json({ error: "Followup not found" });
+            }
+
+            const isAuthor = followup.author._id === currentUser._id;
+            const isFacultyOrAdmin = currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN';
+
+            if (!isAuthor && !isFacultyOrAdmin) {
+                return res.status(403).json({ error: "Not authorized to delete this followup" });
+            }
+
+            const updatedPost = await dao.deleteFollowUp(postId, followupId);
+            res.json(updatedPost);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
     const likeFollowUp = async (req, res) => {
         try {
             const { postId, followupId } = req.params;
-            const post = await dao.likeFollowUp(postId, followupId);
-            res.json(post);
+            const currentUser = req.session["currentUser"];
+
+            if (!currentUser) {
+                return res.status(401).json({ error: "Must be logged in" });
+            }
+
+            const post = await dao.toggleLikeFollowUp(postId, followupId, currentUser._id);
+            const followup = post.followups.id(followupId);
+            const userHasLiked = (followup.likedBy || []).includes(currentUser._id);
+
+            res.json({
+                ...post.toObject(),
+                userHasLiked,
+                followupLikes: followup.likes
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -298,6 +395,7 @@ export default function PazzaRoutes(app) {
     app.post("/api/pazza/posts/:postId/bookmark", toggleBookmark);
     app.post("/api/pazza/posts/:postId/star", toggleStar);
     app.post("/api/pazza/posts/:postId/followups", addFollowUp);
+    app.delete("/api/pazza/posts/:postId/followups/:followupId", deleteFollowUp);
     app.post("/api/pazza/posts/:postId/followups/:followupId/like", likeFollowUp);
     app.get("/api/pazza/courses/:courseId/stats", getCourseStats);
     app.get("/api/pazza/courses/:courseId/tag-counts", getTagCounts);

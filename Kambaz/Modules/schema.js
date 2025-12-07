@@ -5,6 +5,7 @@ const schema = new mongoose.Schema(
         name: String,
         description: String,
         lessons: [{ _id: String, name: String, description: String }],
+        course: String, 
     }
 );
 export default schema;

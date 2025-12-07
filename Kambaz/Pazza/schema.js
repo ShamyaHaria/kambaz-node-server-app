@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 const followUpSchema = new mongoose.Schema({
     content: { type: String, required: true },
     author: {
@@ -8,14 +9,16 @@ const followUpSchema = new mongoose.Schema({
     },
     isAnswer: { type: Boolean, default: false },
     likes: { type: Number, default: 0 },
+    likedBy: [{ type: String, ref: "UserModel" }],
     createdAt: { type: Date, default: Date.now }
 }, { _id: true });
+
 const pazzaPostSchema = new mongoose.Schema(
     {
         title: { type: String, required: true },
         content: { type: String, required: true },
         course: { type: String, ref: "CourseModel", required: true },
-        category: { type: String, enum: ['Concept', 'Clarification', 'Testing', 'Bug', 'Setup', 'Other'], default: 'Other' }, 
+        category: { type: String, enum: ['Concept', 'Clarification', 'Testing', 'Bug', 'Setup', 'Other'], default: 'Other' },
         author: {
             _id: { type: String, ref: "UserModel", required: true },
             name: String,
@@ -26,17 +29,17 @@ const pazzaPostSchema = new mongoose.Schema(
         isInstructor: { type: Boolean, default: false },
         views: { type: Number, default: 0 },
         likes: { type: Number, default: 0 },
+        likedBy: [{ type: String, ref: "UserModel" }],
         bookmarked: [{ type: String, ref: "UserModel" }],
         starred: [{ type: String, ref: "UserModel" }],
         followups: [followUpSchema],
         createdAt: { type: Date, default: Date.now },
         updatedAt: { type: Date, default: Date.now }
     },
-    { collection: "pazza_posts" }
+    {
+        collection: "pazza_posts",
+        timestamps: true
+    }
 );
 
-pazzaPostSchema.pre('save', function (next) {
-    this.updatedAt = new Date();
-    next();
-});
 export default pazzaPostSchema;

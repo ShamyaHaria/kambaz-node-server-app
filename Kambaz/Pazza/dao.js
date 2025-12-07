@@ -41,7 +41,29 @@ export default function PazzaDao() {
     }
     function toggleLike(postId, userId) {
         return model.findById(postId).then(post => {
-            post.likes = (post.likes || 0) + 1;
+            console.log('DAO toggleLike - Post found:', post._id);
+            console.log('DAO - Current likes:', post.likes);
+            console.log('DAO - Current likedBy:', post.likedBy);
+
+            const likedUsers = post.likedBy || [];
+            const index = likedUsers.indexOf(userId);
+
+            console.log('DAO - User index in likedBy:', index);
+
+            if (index > -1) {
+                console.log('DAO - Removing like');
+                likedUsers.splice(index, 1);
+                post.likes = Math.max(0, post.likes - 1);
+            } else {
+                console.log('DAO - Adding like');
+                likedUsers.push(userId);
+                post.likes = (post.likes || 0) + 1;
+            }
+
+            post.likedBy = likedUsers;
+            console.log('DAO - New likes:', post.likes);
+            console.log('DAO - New likedBy:', post.likedBy);
+
             return post.save();
         });
     }
@@ -84,28 +106,66 @@ export default function PazzaDao() {
             { new: true }
         );
     }
-// Stats
+
+    function toggleLikeFollowUp(postId, followupId, userId) {
+        console.log('DAO toggleLikeFollowUp called');
+        console.log('postId:', postId, 'followupId:', followupId, 'userId:', userId);
+
+        return model.findById(postId).then(post => {
+            console.log('Post found:', post._id);
+            const followup = post.followups.id(followupId);
+            console.log('Followup found:', followup?._id);
+
+            if (!followup) {
+                throw new Error('Followup not found');
+            }
+
+            const likedUsers = followup.likedBy || [];
+            console.log('Current likedBy:', likedUsers);
+            const index = likedUsers.indexOf(userId);
+            console.log('User index:', index);
+
+            if (index > -1) {
+                console.log('Removing like');
+                likedUsers.splice(index, 1);
+                followup.likes = Math.max(0, followup.likes - 1);
+            } else {
+                console.log('Adding like');
+                likedUsers.push(userId);
+                followup.likes = (followup.likes || 0) + 1;
+            }
+
+            followup.likedBy = likedUsers;
+            post.markModified('followups');
+            console.log('New likes:', followup.likes);
+            console.log('New likedBy:', followup.likedBy);
+
+            return post.save();
+        });
+    }
+
+    // Stats
     async function getCourseStats(courseId) {
         const posts = await model.find({ course: courseId });
         const EnrollmentsDao = (await import("../Enrollments/dao.js")).default;
         const enrollmentsDao = EnrollmentsDao();
         const enrollments = await enrollmentsDao.findEnrollmentsForCourse(courseId);
         const studentsEnrolled = enrollments.length;
-        
+
         const totalPosts = posts.length;
         const totalContributions = posts.reduce((sum, post) => sum + post.followups.length, 0) + totalPosts;
-        const unansweredQuestions = posts.filter(post => 
+        const unansweredQuestions = posts.filter(post =>
             post.followups.length === 0 || !post.followups.some(f => f.isAnswer)
         ).length;
-        const unansweredFollowups = posts.reduce((sum, post) => 
+        const unansweredFollowups = posts.reduce((sum, post) =>
             sum + post.followups.filter(f => !f.isAnswer).length, 0
         );
         const instructorResponses = posts.filter(post => post.author.role === 'instructor').length +
-            posts.reduce((sum, post) => 
+            posts.reduce((sum, post) =>
                 sum + post.followups.filter(f => f.author.role === 'instructor').length, 0
             );
         const studentResponses = posts.filter(post => post.author.role === 'student').length +
-            posts.reduce((sum, post) => 
+            posts.reduce((sum, post) =>
                 sum + post.followups.filter(f => f.author.role === 'student').length, 0
             );
 
@@ -124,14 +184,25 @@ export default function PazzaDao() {
     async function getTagCounts(courseId) {
         const posts = await model.find({ course: courseId });
         const tagCounts = {};
-        
+
         posts.forEach(post => {
             post.tags.forEach(tag => {
                 tagCounts[tag] = (tagCounts[tag] || 0) + 1;
             });
         });
-        
+
         return tagCounts;
+    }
+
+    function deleteFollowUp(postId, followupId) {
+        return model.findByIdAndUpdate(
+            postId,
+            {
+                $pull: { followups: { _id: followupId } },
+                $set: { updatedAt: new Date() }
+            },
+            { new: true }
+        );
     }
 
     return {
@@ -147,7 +218,9 @@ export default function PazzaDao() {
         toggleStar,
         addFollowUp,
         likeFollowUp,
+        toggleLikeFollowUp,
         getCourseStats,
         getTagCounts,
+        deleteFollowUp,
     };
 }
