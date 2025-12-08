@@ -280,6 +280,38 @@ export default function PazzaDao() {
         return tagCounts;
     }
 
+    function updateFollowUp(postId, followupId, content) {
+        return model.findById(postId).then(post => {
+            if (!post) throw new Error('Post not found');
+
+            const followup = post.followups.id(followupId);
+            if (!followup) throw new Error('Followup not found');
+
+            followup.content = content;
+            post.markModified('followups');
+            post.updatedAt = new Date();
+
+            return post.save();
+        });
+    }
+
+    function updateReply(postId, followupId, replyId, content) {
+        return model.findById(postId).then(post => {
+            if (!post) throw new Error('Post not found');
+
+            const followup = post.followups.id(followupId);
+            if (!followup) throw new Error('Followup not found');
+
+            const reply = followup.replies.id(replyId);
+            if (!reply) throw new Error('Reply not found');
+
+            reply.content = content;
+            post.markModified('followups');
+
+            return post.save();
+        });
+    }
+
     return {
         findPostsForCourse,
         findPostById,
@@ -300,5 +332,7 @@ export default function PazzaDao() {
         toggleLikeReply,
         getCourseStats,
         getTagCounts,
+        updateFollowUp,
+        updateReply
     };
 }
