@@ -254,6 +254,104 @@ export default function PazzaRoutes(app) {
             res.status(500).json({ error: error.message });
         }
     };
+
+    const addReply = async (req, res) => {
+        try {
+            const { postId, followupId } = req.params;
+            const currentUser = req.session["currentUser"];
+
+            if (!currentUser) {
+                return res.status(401).json({ error: "Must be logged in" });
+            }
+
+            let pazzaRole = 'student';
+            if (currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN') {
+                pazzaRole = 'instructor';
+            } else if (currentUser.role === 'TA') {
+                pazzaRole = 'ta';
+            }
+
+            const reply = {
+                content: req.body.content,
+                author: {
+                    _id: currentUser._id,
+                    name: `${currentUser.firstName} ${currentUser.lastName}`,
+                    role: pazzaRole
+                },
+                likes: 0,
+                likedBy: [],
+                createdAt: new Date()
+            };
+
+            const post = await dao.addReply(postId, followupId, reply);
+            res.json(post);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
+    const deleteReply = async (req, res) => {
+        try {
+            const { postId, followupId, replyId } = req.params;
+            const currentUser = req.session["currentUser"];
+
+            if (!currentUser) {
+                return res.status(401).json({ error: "Must be logged in" });
+            }
+
+            const post = await dao.findPostById(postId);
+            if (!post) {
+                return res.status(404).json({ error: "Post not found" });
+            }
+
+            const followup = post.followups.id(followupId);
+            if (!followup) {
+                return res.status(404).json({ error: "Followup not found" });
+            }
+
+            const reply = followup.replies.id(replyId);
+            if (!reply) {
+                return res.status(404).json({ error: "Reply not found" });
+            }
+
+            const isAuthor = reply.author._id === currentUser._id;
+            const isFacultyOrAdmin = currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN';
+
+            if (!isAuthor && !isFacultyOrAdmin) {
+                return res.status(403).json({ error: "Not authorized to delete this reply" });
+            }
+
+            const updatedPost = await dao.deleteReply(postId, followupId, replyId);
+            res.json(updatedPost);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
+    const likeReply = async (req, res) => {
+        try {
+            const { postId, followupId, replyId } = req.params;
+            const currentUser = req.session["currentUser"];
+
+            if (!currentUser) {
+                return res.status(401).json({ error: "Must be logged in" });
+            }
+
+            const post = await dao.toggleLikeReply(postId, followupId, replyId, currentUser._id);
+            const followup = post.followups.id(followupId);
+            const reply = followup.replies.id(replyId);
+            const userHasLiked = (reply.likedBy || []).includes(currentUser._id);
+
+            res.json({
+                ...post.toObject(),
+                userHasLiked,
+                replyLikes: reply.likes
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
     const getCourseStats = async (req, res) => {
         try {
             const { courseId } = req.params;
@@ -264,17 +362,14 @@ export default function PazzaRoutes(app) {
         }
     };
 
-    // Get detailed statistics
     const getStatistics = async (req, res) => {
         try {
             const { courseId } = req.params;
             const posts = await dao.findPostsForCourse(courseId, {});
 
-            // Get all enrolled users for this course
             const enrollmentsDao = EnrollmentsDao();
             const enrolledUsers = await enrollmentsDao.findUsersForCourse(courseId);
 
-            // Usage by day
             const usageByDay = {};
             posts.forEach(post => {
                 const date = new Date(post.createdAt).toLocaleDateString();
@@ -289,7 +384,6 @@ export default function PazzaRoutes(app) {
                 uniqueUsers: usageByDay[date].size
             })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-            // Posts by day
             const postsByDay = {};
             posts.forEach(post => {
                 const date = new Date(post.createdAt).toLocaleDateString();
@@ -301,7 +395,6 @@ export default function PazzaRoutes(app) {
                 posts: postsByDay[date]
             })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-            // Category breakdown by folder
             const categoryBreakdown = {};
             posts.forEach(post => {
                 const folder = post.tags[0] || 'other';
@@ -313,15 +406,12 @@ export default function PazzaRoutes(app) {
                 categoryBreakdown[folder][category] = (categoryBreakdown[folder][category] || 0) + 1;
             });
 
-            // Class stats
             const totalContributions = posts.length + posts.reduce((sum, p) => sum + p.followups.length, 0);
             const instructorResponses = posts.filter(p => p.author.role === 'instructor').length +
                 posts.reduce((sum, p) => sum + p.followups.filter(f => f.author.role === 'instructor').length, 0);
 
-            // Top contributors (from enrolled students only)
             const contributorMap = {};
 
-            // Initialize all enrolled students with 0 contributions
             enrolledUsers.forEach(user => {
                 if (user && user.role === 'STUDENT') {
                     contributorMap[user._id] = {
@@ -334,13 +424,11 @@ export default function PazzaRoutes(app) {
                 }
             });
 
-            // Add actual contributions
             posts.forEach(post => {
                 const authorId = post.author._id;
                 if (contributorMap[authorId]) {
                     contributorMap[authorId].contributions += 1;
 
-                    // Count followup contributions
                     post.followups.forEach(followup => {
                         if (contributorMap[followup.author._id]) {
                             contributorMap[followup.author._id].contributions += 1;
@@ -353,7 +441,6 @@ export default function PazzaRoutes(app) {
                 .sort((a, b) => b.contributions - a.contributions)
                 .slice(0, 10);
 
-            // Student participation - all enrolled students
             const studentParticipation = Object.values(contributorMap);
 
             res.json({
@@ -383,6 +470,7 @@ export default function PazzaRoutes(app) {
             res.status(500).json({ error: error.message });
         }
     };
+
     app.get("/api/pazza/courses/:courseId/statistics", getStatistics);
     app.get("/api/pazza/courses/:courseId/posts", findPostsForCourse);
     app.get("/api/pazza/posts/:postId", findPostById);
@@ -397,6 +485,9 @@ export default function PazzaRoutes(app) {
     app.post("/api/pazza/posts/:postId/followups", addFollowUp);
     app.delete("/api/pazza/posts/:postId/followups/:followupId", deleteFollowUp);
     app.post("/api/pazza/posts/:postId/followups/:followupId/like", likeFollowUp);
+    app.post("/api/pazza/posts/:postId/followups/:followupId/replies", addReply);
+    app.delete("/api/pazza/posts/:postId/followups/:followupId/replies/:replyId", deleteReply);
+    app.post("/api/pazza/posts/:postId/followups/:followupId/replies/:replyId/like", likeReply);
     app.get("/api/pazza/courses/:courseId/stats", getCourseStats);
     app.get("/api/pazza/courses/:courseId/tag-counts", getTagCounts);
 }

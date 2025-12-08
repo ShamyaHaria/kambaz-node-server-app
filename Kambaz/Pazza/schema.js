@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+const replySchema = new mongoose.Schema({
+    content: { type: String, required: true },
+    author: {
+        _id: { type: String, ref: "UserModel", required: true },
+        name: String,
+        role: { type: String, enum: ['student', 'instructor', 'ta'], default: 'student' }
+    },
+    likes: { type: Number, default: 0 },
+    likedBy: [{ type: String, ref: "UserModel" }],
+    createdAt: { type: Date, default: Date.now }
+}, { _id: true });
+
 const followUpSchema = new mongoose.Schema({
     content: { type: String, required: true },
     author: {
@@ -10,6 +22,7 @@ const followUpSchema = new mongoose.Schema({
     isAnswer: { type: Boolean, default: false },
     likes: { type: Number, default: 0 },
     likedBy: [{ type: String, ref: "UserModel" }],
+    replies: [replySchema],
     createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 

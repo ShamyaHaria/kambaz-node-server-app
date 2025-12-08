@@ -144,7 +144,93 @@ export default function PazzaDao() {
         });
     }
 
-    // Stats
+    function deleteFollowUp(postId, followupId) {
+        return model.findByIdAndUpdate(
+            postId,
+            {
+                $pull: { followups: { _id: followupId } },
+                $set: { updatedAt: new Date() }
+            },
+            { new: true }
+        );
+    }
+
+    function addReply(postId, followupId, reply) {
+        return model.findById(postId).then(post => {
+            if (!post) {
+                throw new Error('Post not found');
+            }
+
+            const followup = post.followups.id(followupId);
+            if (!followup) {
+                throw new Error('Followup not found');
+            }
+
+            if (!followup.replies) {
+                followup.replies = [];
+            }
+
+            followup.replies.push(reply);
+            post.markModified('followups');
+            post.updatedAt = new Date();
+
+            return post.save();
+        });
+    }
+
+    function deleteReply(postId, followupId, replyId) {
+        return model.findById(postId).then(post => {
+            if (!post) {
+                throw new Error('Post not found');
+            }
+
+            const followup = post.followups.id(followupId);
+            if (!followup) {
+                throw new Error('Followup not found');
+            }
+
+            followup.replies.pull(replyId);
+            post.markModified('followups');
+            post.updatedAt = new Date();
+
+            return post.save();
+        });
+    }
+
+    function toggleLikeReply(postId, followupId, replyId, userId) {
+        return model.findById(postId).then(post => {
+            if (!post) {
+                throw new Error('Post not found');
+            }
+
+            const followup = post.followups.id(followupId);
+            if (!followup) {
+                throw new Error('Followup not found');
+            }
+
+            const reply = followup.replies.id(replyId);
+            if (!reply) {
+                throw new Error('Reply not found');
+            }
+
+            const likedUsers = reply.likedBy || [];
+            const index = likedUsers.indexOf(userId);
+
+            if (index > -1) {
+                likedUsers.splice(index, 1);
+                reply.likes = Math.max(0, reply.likes - 1);
+            } else {
+                likedUsers.push(userId);
+                reply.likes = (reply.likes || 0) + 1;
+            }
+
+            reply.likedBy = likedUsers;
+            post.markModified('followups');
+
+            return post.save();
+        });
+    }
+
     async function getCourseStats(courseId) {
         const posts = await model.find({ course: courseId });
         const EnrollmentsDao = (await import("../Enrollments/dao.js")).default;
@@ -194,17 +280,6 @@ export default function PazzaDao() {
         return tagCounts;
     }
 
-    function deleteFollowUp(postId, followupId) {
-        return model.findByIdAndUpdate(
-            postId,
-            {
-                $pull: { followups: { _id: followupId } },
-                $set: { updatedAt: new Date() }
-            },
-            { new: true }
-        );
-    }
-
     return {
         findPostsForCourse,
         findPostById,
@@ -219,8 +294,11 @@ export default function PazzaDao() {
         addFollowUp,
         likeFollowUp,
         toggleLikeFollowUp,
+        deleteFollowUp,
+        addReply,
+        deleteReply,
+        toggleLikeReply,
         getCourseStats,
         getTagCounts,
-        deleteFollowUp,
     };
 }
