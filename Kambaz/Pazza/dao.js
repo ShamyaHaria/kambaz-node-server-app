@@ -1,13 +1,25 @@
 import model from "./model.js";
 export default function PazzaDao() {
-    function findPostsForCourse(courseId, filters = {}) {
+    async function findPostsForCourse(courseId, filters = {}, currentUser = null) {
         const query = { course: courseId };
+
         if (filters.pinned !== undefined) {
             query.isPinned = filters.pinned;
         }
         if (filters.tags && filters.tags.length > 0) {
             query.tags = { $in: filters.tags };
         }
+        if (currentUser) {
+            const isInstructor = currentUser.role === 'FACULTY' || currentUser.role === 'ADMIN' || currentUser.role === 'TA';
+
+            if (!isInstructor) {
+                query.$or = [
+                    { visibility: 'entire_class' },
+                    { 'author._id': currentUser._id }
+                ];
+            }
+        }
+
         return model.find(query).sort({ isPinned: -1, createdAt: -1 });
     }
     function findPostById(postId) {
@@ -312,6 +324,20 @@ export default function PazzaDao() {
         });
     }
 
+    function toggleResolveDiscussion(postId, followupId) {
+        return model.findById(postId).then(post => {
+            if (!post) throw new Error('Post not found');
+
+            const followup = post.followups.id(followupId);
+            if (!followup) throw new Error('Followup not found');
+
+            followup.isResolved = !followup.isResolved;
+            post.markModified('followups');
+
+            return post.save();
+        });
+    }
+
     return {
         findPostsForCourse,
         findPostById,
@@ -333,6 +359,7 @@ export default function PazzaDao() {
         getCourseStats,
         getTagCounts,
         updateFollowUp,
-        updateReply
+        updateReply,
+        toggleResolveDiscussion
     };
 }

@@ -20,6 +20,7 @@ const followUpSchema = new mongoose.Schema({
         role: { type: String, enum: ['student', 'instructor', 'ta'], default: 'student' }
     },
     isAnswer: { type: Boolean, default: false },
+    isResolved: { type: Boolean, default: false },
     likes: { type: Number, default: 0 },
     likedBy: [{ type: String, ref: "UserModel" }],
     replies: [replySchema],
@@ -37,6 +38,11 @@ const pazzaPostSchema = new mongoose.Schema(
             name: String,
             role: { type: String, enum: ['student', 'instructor', 'ta'], default: 'student' }
         },
+        visibility: { 
+            type: String, 
+            enum: ['entire_class', 'instructors_only'], 
+            default: 'entire_class' 
+        }, 
         tags: [{ type: String }],
         isPinned: { type: Boolean, default: false },
         isInstructor: { type: Boolean, default: false },

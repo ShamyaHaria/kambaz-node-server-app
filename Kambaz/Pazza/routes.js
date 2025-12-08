@@ -7,10 +7,11 @@ export default function PazzaRoutes(app) {
         try {
             const { courseId } = req.params;
             const { tags, pinned } = req.query;
+            const currentUser = req.session["currentUser"];
             const filters = {};
             if (tags) filters.tags = tags.split(',');
             if (pinned !== undefined) filters.pinned = pinned === 'true';
-            const posts = await dao.findPostsForCourse(courseId, filters);
+            const posts = await dao.findPostsForCourse(courseId, filters, currentUser);
             res.json(posts);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -534,6 +535,22 @@ export default function PazzaRoutes(app) {
         }
     };
 
+    const toggleResolveDiscussion = async (req, res) => {
+    try {
+        const { postId, followupId } = req.params;
+        const currentUser = req.session["currentUser"];
+
+        if (!currentUser) {
+            return res.status(401).json({ error: "Must be logged in" });
+        }
+
+        const post = await dao.toggleResolveDiscussion(postId, followupId);
+        res.json(post);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
     app.get("/api/pazza/courses/:courseId/statistics", getStatistics);
     app.get("/api/pazza/courses/:courseId/posts", findPostsForCourse);
     app.get("/api/pazza/posts/:postId", findPostById);
@@ -555,4 +572,5 @@ export default function PazzaRoutes(app) {
     app.get("/api/pazza/courses/:courseId/tag-counts", getTagCounts);
     app.put("/api/pazza/posts/:postId/followups/:followupId", updateFollowUp);
     app.put("/api/pazza/posts/:postId/followups/:followupId/replies/:replyId", updateReply);
+    app.patch("/api/pazza/posts/:postId/followups/:followupId/resolve", toggleResolveDiscussion);
 }
