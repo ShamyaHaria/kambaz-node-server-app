@@ -113,11 +113,31 @@ export default function UserRoutes(app) {
       res.status(500).json({ error: error.message });
     }
   };
+  const updateOfficeHours = async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const { days, time, location } = req.body;
+
+      await dao.updateUser(userId, {
+        officeHours: { days, time, location }
+      });
+      const updatedUser = await dao.findUserById(userId);
+      const currentUser = req.session["currentUser"];
+      if (currentUser && currentUser._id === userId) {
+        req.session["currentUser"] = updatedUser;
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  };
 
   app.post("/api/users", createUser);
   app.get("/api/users", findAllUsers);
   app.get("/api/users/:userId", findUserById);
   app.put("/api/users/:userId", updateUser);
+  app.put("/api/users/:userId/office-hours", updateOfficeHours);
   app.delete("/api/users/:userId", deleteUser);
   app.post("/api/users/signup", signup);
   app.post("/api/users/signin", signin);
@@ -125,4 +145,5 @@ export default function UserRoutes(app) {
   app.post("/api/users/profile", profile);
   app.get("/api/users/current/courses", findCoursesForCurrentUser);
   app.post("/api/users/current/courses", createCourseForCurrentUser);
+
 }
